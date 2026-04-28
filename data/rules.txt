@@ -1,0 +1,5 @@
+CRITICAL RULES:
+1. ARABIC PURITY: The "ar" translation MUST contain ONLY Arabic letters (أ-ي).
+2. NON-ARABIC PURITY: The "en", "fr", "de" translations MUST contain ONLY Latin letters.
+3. NO LITERAL TRANSLATION: Translate the "meaning" and "vibe". Use appetizing terms.
+4. EXACT OUTPUT: Return ONLY a valid JSON object. Keys are original text, values are language objects.
