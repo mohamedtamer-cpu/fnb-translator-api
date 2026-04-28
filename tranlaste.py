@@ -34,7 +34,7 @@ def load_memory():
 # --- 2. Clean API Endpoint ---
 @app.post("/translate")
 def translate_menu(
-    text_data: str = Form(..., description="حط الكلمات هنا (كل كلمة في سطر)"),
+    text_data: str = Form(..., description="Enter Here"),
     arabic: bool = Form(True, description="عربي (ar)"),
     english: bool = Form(True, description="إنجليزي (en)"),
     french: bool = Form(False, description="فرنساوي (fr)"),
@@ -56,16 +56,14 @@ def translate_menu(
     memory = load_memory()
     raw_lines = [line.strip() for line in text_data.split('\n') if line.strip()]
     
-    # 🔥 التعديل الذكي للذاكرة هنا
     cached_items = []
     new_items = []
     
     for line in raw_lines:
-        # بنسأل: هل الكلمة في الذاكرة؟ وهل "كل" اللغات المطلوبة موجودة جواها؟
+        
         if line in memory and all(lang in memory[line] for lang in target_codes):
             cached_items.append(line)
         else:
-            # لو ناقصة لغة واحدة حتى، هنبعتها للـ AI
             new_items.append(line)
 
     if not new_items:
@@ -76,7 +74,6 @@ def translate_menu(
                 "From_JSON_Memory_🟢": len(cached_items),
                 "From_AI_API_🔴": 0
             },
-            # بنرجع اللغات اللي اليوزر طالبها بس حتى لو الذاكرة فيها لغات أكتر
             "data": {item: {lang: memory[item][lang] for lang in target_codes if lang in memory[item]} for item in raw_lines}
         }
 
@@ -95,7 +92,6 @@ def translate_menu(
             )
             final_json = json.loads(response.choices[0].message.content)
             
-            # تحديث الذاكرة بالجديد
             for key, value in final_json.items():
                 if key not in memory:
                     memory[key] = {}
@@ -104,7 +100,6 @@ def translate_menu(
             with open(MEMORY_FILE, "w", encoding="utf-8") as f:
                 json.dump(memory, f, ensure_ascii=False, indent=4)
             
-            # تجميع الرد النهائي لليوزر (لغات مطلوبة فقط)
             complete_response = {}
             for item in raw_lines:
                 complete_response[item] = {lang: memory[item][lang] for lang in target_codes if lang in memory[item]}
