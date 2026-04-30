@@ -1,119 +1,212 @@
-from fastapi import FastAPI, Form, HTTPException
-import json
 import os
-import time
-import re
+import json
+from fastapi import FastAPI, Query
+from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
+from dotenv import load_dotenv
 
-# --- 1. Setup ---
-app = FastAPI(title="FastAPI F&B Translator", version="1.0")
-client = Groq(api_key="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")
+# Load environment variables
+load_dotenv()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-os.makedirs("data", exist_ok=True)
-MEMORY_FILE = os.path.join("data", "translation_memory.json")
-RULES_FILE = os.path.join("data", "rules.txt")
+# Initialize FastAPI and Groq
+app = FastAPI(title="Food AI & Translation API")
+client = Groq(api_key=GROQ_API_KEY)
 
-if not os.path.exists(RULES_FILE):
-    with open(RULES_FILE, "w", encoding="utf-8") as f:
-        f.write("""CRITICAL LANGUAGE PURITY RULES (ABSOLUTE PRIORITY):
-1. STRICT ISOLATION: NEVER mix languages! A language code must contain ONLY characters from that language.
-2. ARABIC PURITY: The "ar" translation MUST contain ONLY Arabic letters (أ-ي). DO NOT leave any English words, letters, or Latin characters inside the Arabic translation under any circumstances.
-3. LATIN PURITY: The "en", "fr", "de", "es", and "it" translations MUST contain ONLY Latin letters.
+# CORS setup
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-LOCALIZATION & FORMAT RULES:
-1. NO LITERAL TRANSLATION: Translate the "meaning" and "vibe".
-2. KEEP IT SIMPLE: EXACTLY a VALID JSON object. No extra descriptions.
-3. IGNORE UI TEXT: Ignore any remaining website junk.
-""")
+DB_FILE = "data/database.json"
+RULES_FILE = "data/rules.txt"
 
-def load_memory():
-    if os.path.exists(MEMORY_FILE):
-        with open(MEMORY_FILE, "r", encoding="utf-8") as f: return json.load(f)
+# --- DATABASE & RULES FUNCTIONS ---
+def load_db():
+    if os.path.exists(DB_FILE):
+        with open(DB_FILE, "r", encoding="utf-8") as file:
+            try:
+                return json.load(file)
+            except json.JSONDecodeError:
+                return {}
     return {}
 
-# --- 2. Clean API Endpoint ---
-@app.post("/translate")
-def translate_menu(
-    text_data: str = Form(..., description="Enter Here"),
-    arabic: bool = Form(True, description="عربي (ar)"),
-    english: bool = Form(True, description="إنجليزي (en)"),
-    french: bool = Form(False, description="فرنساوي (fr)"),
-    german: bool = Form(False, description="ألماني (de)"),
-    spanish: bool = Form(False, description="إسباني (es)"),
-    italian: bool = Form(False, description="إيطالي (it)")
-):
-    target_codes = []
-    if arabic: target_codes.append("ar")
-    if english: target_codes.append("en")
-    if french: target_codes.append("fr")
-    if german: target_codes.append("de")
-    if spanish: target_codes.append("es")
-    if italian: target_codes.append("it")
+def save_db(db):
+    with open(DB_FILE, "w", encoding="utf-8") as file:
+        json.dump(db, file, indent=4, ensure_ascii=False)
 
-    if not text_data.strip(): raise HTTPException(status_code=400, detail="حط كلام الأول!")
-    if not target_codes: raise HTTPException(status_code=400, detail="اختار لغة واحدة على الأقل!")
+def load_rules():
+    """Bte-read malaf el rules 3ashan tb3to lel AI"""
+    if os.path.exists(RULES_FILE):
+        with open(RULES_FILE, "r", encoding="utf-8") as file:
+            return file.read().strip()
+    return ""
 
-    memory = load_memory()
-    raw_lines = [line.strip() for line in text_data.split('\n') if line.strip()]
-    
-    cached_items = []
-    new_items = []
-    
-    for line in raw_lines:
-        
-        if line in memory and all(lang in memory[line] for lang in target_codes):
-            cached_items.append(line)
-        else:
-            new_items.append(line)
+# Initialize DB in memory
+data_db = load_db()
 
-    if not new_items:
-        return {
-            "status": "success",
-            "report": {
-                "Total_Items": len(raw_lines),
-                "From_JSON_Memory_🟢": len(cached_items),
-                "From_AI_API_🔴": 0
-            },
-            "data": {item: {lang: memory[item][lang] for lang in target_codes if lang in memory[item]} for item in raw_lines}
+# --- HELPER FUNCTION: Ensure item exists in DB ---
+def ensure_db_entry(text_key, original_text, category):
+    if text_key not in data_db:
+        data_db[text_key] = {
+            "original_text": original_text,
+            "category": category,
+            "translations": {},
+            "descriptions": {}
         }
 
-    text_to_send = "\n".join(new_items)
-    with open(RULES_FILE, "r", encoding="utf-8") as f: external_rules = f.read()
+# ==========================================
+# ENDPOINT 1: TRANSLATION (Multiple Languages)
+# ==========================================
+@app.get("/api/translate")
+def translate_text(
+    text: str, 
+    category: str, 
+    languages: str # e.g., "en,fr,ar"
+):
+    text_key = text.strip().lower()
+    cat_key = category.strip().lower()
+    
+    target_langs = [lang.strip().lower() for lang in languages.split(",") if lang.strip()]
+    ensure_db_entry(text_key, text, category)
+    
+    results = {}
+    missing_langs = []
 
-    system_prompt = f"Translate to EXACT language codes: {target_codes}.\n\n{external_rules}"
+    # 1. Local Search First
+    for lang in target_langs:
+        if lang in data_db[text_key]["translations"]:
+            results[lang] = data_db[text_key]["translations"][lang]
+        else:
+            missing_langs.append(lang)
 
-    max_retries = 3
-    for attempt in range(max_retries):
+    # 2. Ask Groq for missing languages
+    if missing_langs:
+        missing_langs_str = ", ".join(missing_langs)
+        custom_rules = load_rules() # Bnes7ab el rules hna
+        
         try:
             response = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": f"LOCALIZE THESE ITEMS:\n{text_to_send[:12000]}"}],
-                response_format={"type": "json_object"}, temperature=0.1 
+                messages=[
+                    {
+                        "role": "system",
+                        "content": f"""You are a highly accurate culinary translator. 
+Translate the text '{text}' (Context/Category: '{category}') into the following languages: {missing_langs_str}.
+
+CRITICAL SYSTEM RULES:
+{custom_rules}
+
+IMPORTANT JSON FORMAT: Ensure you return ONLY a valid JSON object. Do not include any extra text."""
+                    }
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.3,
             )
-            final_json = json.loads(response.choices[0].message.content)
             
-            for key, value in final_json.items():
-                if key not in memory:
-                    memory[key] = {}
-                memory[key].update(value)
-                
-            with open(MEMORY_FILE, "w", encoding="utf-8") as f:
-                json.dump(memory, f, ensure_ascii=False, indent=4)
+            ai_output = json.loads(response.choices[0].message.content)
             
-            complete_response = {}
-            for item in raw_lines:
-                complete_response[item] = {lang: memory[item][lang] for lang in target_codes if lang in memory[item]}
+            # Da by-handle rule raqam 4 (law el AI ba3at el format b-esm el akla aw flat)
+            if text in ai_output and isinstance(ai_output[text], dict):
+                ai_translations = ai_output[text]
+            elif text_key in ai_output and isinstance(ai_output[text_key], dict):
+                ai_translations = ai_output[text_key]
+            else:
+                ai_translations = ai_output
+
+            # Save to DB and add to results
+            for lang, trans in ai_translations.items():
+                lang_lower = lang.lower()
+                # n-check law el language code mawgoud w n-save
+                if lang_lower in missing_langs:
+                    data_db[text_key]["translations"][lang_lower] = trans
+                    results[lang_lower] = trans
             
-            return {
-                "status": "success",
-                "report": {
-                    "Total_Items": len(raw_lines),
-                    "From_JSON_Memory_🟢": len(cached_items),
-                    "From_AI_API_🔴": len(new_items)
-                },
-                "data": complete_response
-            }
+            save_db(data_db)
             
         except Exception as e:
-            if "429" in str(e): time.sleep(10); continue
-            raise HTTPException(status_code=500, detail=str(e))
+            return {"status": "error", "message": "Groq AI failed during translation", "details": str(e)}
+
+    return {
+        "status": "success",
+        "text": text,
+        "category": category,
+        "translations": results
+    }
+
+# ==========================================
+# ENDPOINT 2: DESCRIPTION
+# ==========================================
+@app.get("/api/describe")
+def describe_text(
+    text: str, 
+    category: str, 
+    tone: str
+):
+    text_key = text.strip().lower()
+    tone_key = tone.strip().lower()
+    
+    ensure_db_entry(text_key, text, category)
+
+    # 1. Local Search
+    if tone_key in data_db[text_key]["descriptions"]:
+        return {
+            "status": "success",
+            "source": "local_database",
+            "text": text,
+            "category": category,
+            "tone": tone,
+            "description": data_db[text_key]["descriptions"][tone_key]
+        }
+
+    # 2. Ask Groq AI
+    custom_rules = load_rules()
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"""You are an elite copywriter. 
+Write a short, elegant description (max 30 words) for the item '{text}' which belongs to the category '{category}'. 
+The tone MUST be exactly: '{tone}'. 
+
+APPLY THESE RULES IF RELEVANT:
+{custom_rules}
+
+Return ONLY the description text. No quotes, no extra chat."""
+                }
+            ],
+            temperature=0.75,
+            max_tokens=100
+        )
+        
+        ai_description = response.choices[0].message.content.strip()
+        
+        # 3. Save to DB
+        data_db[text_key]["descriptions"][tone_key] = ai_description
+        save_db(data_db)
+
+        return {
+            "status": "success",
+            "source": "groq_ai",
+            "text": text,
+            "category": category,
+            "tone": tone,
+            "description": ai_description
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": "Groq AI failed during description generation",
+            "details": str(e)
+        }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
