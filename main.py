@@ -163,8 +163,6 @@ def describe_text(
         }
 
     # 2. Ask Groq AI
-    custom_rules = load_rules()
-
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -175,10 +173,7 @@ def describe_text(
 Write a short, elegant description (max 30 words) for the item '{text}' which belongs to the category '{category}'. 
 The tone MUST be exactly: '{tone}'. 
 
-APPLY THESE RULES IF RELEVANT:
-{custom_rules}
-
-Return ONLY the description text. No quotes, no extra chat."""
+Return ONLY the description text. No quotes, no JSON formats, and no extra chat. Just the plain text description."""
                 }
             ],
             temperature=0.75,
