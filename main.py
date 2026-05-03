@@ -152,7 +152,7 @@ def describe_text(
     ensure_db_entry(text_key, text, category)
 
     # 1. Local Search
-    if tone_key in data_db[text_key]["descriptions"]:
+    if tone_key in data_db[text_key]["descriptions"]: # تأكد إن المتغير اسمه data_db
         return {
             "status": "success",
             "source": "local_database",
@@ -162,7 +162,7 @@ def describe_text(
             "description": data_db[text_key]["descriptions"][tone_key]
         }
 
-    # 2. Ask Groq AI
+    # 2. Ask Groq AI - بدون قواعد الترجمة المعقدة
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -173,7 +173,7 @@ def describe_text(
 Write a short, elegant description (max 30 words) for the item '{text}' which belongs to the category '{category}'. 
 The tone MUST be exactly: '{tone}'. 
 
-Return ONLY the description text. No quotes, no JSON formats, and no extra chat. Just the plain text description."""
+Return ONLY the description text. No JSON formats, and no extra chat. Just the plain text description."""
                 }
             ],
             temperature=0.75,

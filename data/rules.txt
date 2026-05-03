@@ -1,5 +1,10 @@
 CRITICAL RULES:
-1. ARABIC PURITY: The "ar" translation MUST contain ONLY Arabic letters (أ-ي).
-2. NON-ARABIC PURITY: The "en", "fr", "de" translations MUST contain ONLY Latin letters.
-3. NO LITERAL TRANSLATION: Translate the "meaning" and "vibe". Use appetizing terms.
-4. EXACT OUTPUT: Return ONLY a valid JSON object. Keys are original text, values are language objects.
+1. ARABIC PURITY: ONLY Arabic letters (أ-ي). No English words inside Arabic text.
+2. NON-ARABIC PURITY: ONLY Latin letters for "en", "fr", "de".
+3. NO LITERAL TRANSLATION: Translate the "culinary experience". 
+   - Example: 'Ice Matcha' -> 'أيس ماتشا ' ( Iced Matcha), NOT 'شاي أخضر مجمد'.
+4. CULINARY TRANSLITERATION: Keep global terms as they sound in Arabic if they are common.
+   - Latte -> لاتيه, Matcha -> ماتشا, Mojito -> موهيتو, Croissant -> كرواسون.
+5. APPETIZING ADJECTIVES: Use words like (طازج، كريمي، منعش، مميز، فاخر) where appropriate to enhance the vibe.
+6. TEMPERATURE LOGIC: 'Ice' means 'Iced/Cold' (بارد/مثلج). NEVER use 'Frozen' (مجمد).
+7. EXACT OUTPUT: Return ONLY a valid JSON object. No conversational filler.
