@@ -1,7 +1,8 @@
 # modules/extract.py
 from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi.responses import StreamingResponse
 from openai import OpenAI
-import pypdf, io, json, base64, os
+import pypdf, io, json, csv, os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,6 +14,7 @@ async def extract_menu(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         filename = file.filename.lower()
+        extracted_data = {}
 
         if filename.endswith('.pdf'):
             pdf_reader = pypdf.PdfReader(io.BytesIO(contents))
@@ -24,9 +26,10 @@ async def extract_menu(file: UploadFile = File(...)):
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"}
             )
-            return json.loads(response.choices[0].message.content)
+            extracted_data = json.loads(response.choices[0].message.content)
 
         elif filename.endswith(('.png', '.jpg', '.jpeg', '.webp')):
+            import base64
             img_base64 = base64.b64encode(contents).decode("utf-8")
             prompt = "Extract menu items from this image as JSON with keys: category, name, description, pricing."
             
@@ -41,9 +44,44 @@ async def extract_menu(file: UploadFile = File(...)):
                 }],
                 response_format={"type": "json_object"}
             )
-            return json.loads(response.choices[0].message.content)
+            extracted_data = json.loads(response.choices[0].message.content)
         else:
             raise HTTPException(status_code=400, detail=f"File {filename} is not supported. Use PDF, PNG, or JPG.")
+
+        # --- Convert JSON data to CSV ---
+        # Assuming the AI response contains a key like "menu_items" or is a list of items
+        items = extracted_data.get("items", []) or extracted_data.get("menu", [])
+        
+        # Fallback if structure keys are nested under a main dictionary
+        if not items and isinstance(extracted_data, dict):
+            # If the response is a dictionary, extract the values
+            items = list(extracted_data.values())
+
+        csv_buffer = io.StringIO()
+        writer = csv.writer(csv_buffer)
+        
+        # Write CSV Headers
+        writer.writerow(["Category", "Name", "Description", "Pricing"])
+        
+        # Write rows
+        for item in items:
+            writer.writerow([
+                item.get("category", ""),
+                item.get("name", ""),
+                item.get("description", ""),
+                item.get("pricing", "")
+            ])
+
+        csv_buffer.seek(0)
+        output = csv_buffer.getvalue()
+
+        # Return as a downloadable CSV file
+        return StreamingResponse(
+            iter([output]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=menu_extracted.csv"}
+        )
+
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
