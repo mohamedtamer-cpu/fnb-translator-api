@@ -8,47 +8,6 @@ load_dotenv()
 router = APIRouter(prefix="/api", tags=["Extraction"])
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-DB_PATH = "data/database.json"
-
-# --- Utilities ---
-def load_db():
-    if not os.path.exists(DB_PATH): 
-        return {}
-    try:
-        with open(DB_PATH, "r", encoding="utf-8") as f: 
-            return json.load(f)
-    except json.JSONDecodeError:
-        return {}
-
-# --- Endpoints ---
-
-# 1. Get single item info from local database
-@router.get("/extract")
-def get_item_from_db(text: str):
-    db = load_db()
-    # Normalize text: remove extra spaces and lowercase
-    text_key = " ".join(text.split()).lower()
-    
-    if text_key in db:
-        return {
-            "status": "success",
-            "source": "local_db",
-            "data": db[text_key]
-        }
-    
-    return {
-        "status": "success",
-        "source": "not_found",
-        "message": "Item not found in local database",
-        "data": {
-            "original_text": text,
-            "category": "unknown",
-            "translations": {},
-            "descriptions": {}
-        }
-    }
-
-# 2. Extract full menu from File (PDF/Image) using OpenAI
 @router.post("/menu")
 async def extract_menu(file: UploadFile = File(...)):
     try:

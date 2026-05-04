@@ -6,7 +6,7 @@ from modules import translate, describe, extract
 app = FastAPI(
     title="FNB Translator API",
     version="1.0",
-    description="API for high-end culinary translations and descriptions"
+    description="API for high-end culinary translations, descriptions, and extraction"
 )
 
 # Enable CORS for frontend compatibility
@@ -18,11 +18,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Registering all Routers
+# Registering only the three main routers
 app.include_router(translate.router)
 app.include_router(describe.router)
 app.include_router(extract.router)
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 def root():
-    return {"message": "FNB Translator API is active and running smoothly"}
+    return {"message": "API is active"}
