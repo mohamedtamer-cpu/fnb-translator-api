@@ -1,5 +1,9 @@
 fastapi
 uvicorn
-groq
+python-multipart
 python-dotenv
+groq
+openai
+pypdf
+pillow
 pydantic

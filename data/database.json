@@ -1,0 +1,14 @@
+{
+    "chicken burger": {
+        "original_text": "chicken burger",
+        "category": "food",
+        "translations": {
+            "it": "hamburger di pollo",
+            "ar": "برجر الدجاج",
+            "fr": "burger de poulet"
+        },
+        "descriptions": {
+            "funny": "Juicy chicken patty in a bun, because who needs a beach body when you can have a chicken burger body?"
+        }
+    }
+}

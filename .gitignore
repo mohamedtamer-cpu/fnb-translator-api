@@ -1,3 +1,6 @@
-__pycache__/
-*.tar
 .env
+__pycache__/
+*.py[cod]
+data/database.json
+.DS_Store
+venv/
