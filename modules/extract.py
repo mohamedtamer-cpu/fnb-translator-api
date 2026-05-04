@@ -48,14 +48,15 @@ async def extract_menu(file: UploadFile = File(...)):
         else:
             raise HTTPException(status_code=400, detail=f"File {filename} is not supported. Use PDF, PNG, or JPG.")
 
-        # --- Convert JSON data to CSV ---
-        # Assuming the AI response contains a key like "menu_items" or is a list of items
-        items = extracted_data.get("items", []) or extracted_data.get("menu", [])
-        
-        # Fallback if structure keys are nested under a main dictionary
-        if not items and isinstance(extracted_data, dict):
-            # If the response is a dictionary, extract the values
-            items = list(extracted_data.values())
+        # --- Safe Parsing for Lists and Dictionaries ---
+        items = []
+        if isinstance(extracted_data, list):
+            items = extracted_data
+        elif isinstance(extracted_data, dict):
+            # Check common root keys like "items", "menu", or get values if keys are categories
+            items = extracted_data.get("items", []) or extracted_data.get("menu", [])
+            if not items:
+                items = list(extracted_data.values())
 
         csv_buffer = io.StringIO()
         writer = csv.writer(csv_buffer)
@@ -63,14 +64,16 @@ async def extract_menu(file: UploadFile = File(...)):
         # Write CSV Headers
         writer.writerow(["Category", "Name", "Description", "Pricing"])
         
-        # Write rows
+        # Write rows safely
         for item in items:
-            writer.writerow([
-                item.get("category", ""),
-                item.get("name", ""),
-                item.get("description", ""),
-                item.get("pricing", "")
-            ])
+            # Handle potential nested lists/dicts safely
+            if isinstance(item, dict):
+                writer.writerow([
+                    item.get("category", ""),
+                    item.get("name", ""),
+                    item.get("description", ""),
+                    item.get("pricing", "")
+                ])
 
         csv_buffer.seek(0)
         output = csv_buffer.getvalue()
@@ -81,7 +84,6 @@ async def extract_menu(file: UploadFile = File(...)):
             media_type="text/csv",
             headers={"Content-Disposition": "attachment; filename=menu_extracted.csv"}
         )
-
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
