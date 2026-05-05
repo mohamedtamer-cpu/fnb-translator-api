@@ -16,7 +16,6 @@ async def extract_menu(file: UploadFile = File(...)):
         filename = file.filename.lower()
         extracted_data = {}
 
-        # AI Prompt updated for Modifiers and Pricing logic
         prompt = (
             "Extract menu items as a JSON object with a root key 'items'. "
             "Each item must have these keys: 'category', 'name', 'description', 'pricing', and 'modifiers'. "
@@ -59,7 +58,6 @@ async def extract_menu(file: UploadFile = File(...)):
         else:
             raise HTTPException(status_code=400, detail=f"File {filename} is not supported. Use PDF, PNG, or JPG.")
 
-        # --- Safe Parsing for Lists and Dictionaries ---
         items = []
         if isinstance(extracted_data, list):
             items = extracted_data
@@ -68,14 +66,11 @@ async def extract_menu(file: UploadFile = File(...)):
             if not items:
                 items = list(extracted_data.values())
 
-        # --- Generate CSV ---
         csv_buffer = io.StringIO()
         writer = csv.writer(csv_buffer)
         
-        # Write CSV Headers
         writer.writerow(["Category", "Name", "Description", "Pricing", "Modifiers"])
         
-        # Write rows and format modifiers
         for item in items:
             if isinstance(item, dict):
                 pricing = item.get("pricing", "")
@@ -83,7 +78,6 @@ async def extract_menu(file: UploadFile = File(...)):
                 
                 modifier_string = ""
                 
-                # Format Modifiers if they exist, and clear Pricing
                 if modifiers and isinstance(modifiers, list):
                     mod_parts = []
                     for mod in modifiers:
@@ -92,7 +86,7 @@ async def extract_menu(file: UploadFile = File(...)):
                             price = mod.get("price", "")
                             mod_parts.append(f"{size}: {price}")
                     modifier_string = " | ".join(mod_parts)
-                    pricing = "" # Force pricing to be empty in CSV if modifiers exist
+                    pricing = ""
                 
                 if pricing is None:
                     pricing = ""
@@ -108,7 +102,6 @@ async def extract_menu(file: UploadFile = File(...)):
         csv_buffer.seek(0)
         output = csv_buffer.getvalue()
 
-        # Return as a downloadable CSV file
         return StreamingResponse(
             iter([output]),
             media_type="text/csv",
