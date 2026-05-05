@@ -1,7 +1,7 @@
 # main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from modules import translate, describe, extract
+from modules import groq_extract, translate, describe, extract 
 
 app = FastAPI(
     title="FNB Translator API",
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(translate.router)
 app.include_router(describe.router)
 app.include_router(extract.router)
+app.include_router(groq_extract.router)
 
 @app.get("/", include_in_schema=False)
 def root():
