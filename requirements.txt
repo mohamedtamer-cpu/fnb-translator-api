@@ -8,3 +8,4 @@ pypdf
 pillow
 pydantic
 google-generativeai
+pdfplumber

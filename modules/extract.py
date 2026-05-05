@@ -26,8 +26,9 @@ async def extract_menu(file: UploadFile = File(...)):
         )
 
         if filename.endswith('.pdf'):
-            pdf_reader = pypdf.PdfReader(io.BytesIO(contents))
-            text = "".join([p.extract_text() for p in pdf_reader.pages])
+            import pdfplumber
+            with pdfplumber.open(io.BytesIO(contents)) as pdf:
+                text = "".join([page.extract_text() for page in pdf.pages])
             
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
