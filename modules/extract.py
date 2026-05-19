@@ -1,4 +1,3 @@
-# modules/extract.py
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
@@ -6,6 +5,8 @@ import pypdf, io, json, csv, os
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# استخدام APIRouter بدلاً من app
 router = APIRouter(prefix="/api", tags=["Extraction"])
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 

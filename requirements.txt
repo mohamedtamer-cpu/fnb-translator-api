@@ -9,3 +9,4 @@ pillow
 pydantic
 google-generativeai
 pdfplumber
+playwright==1.44.0

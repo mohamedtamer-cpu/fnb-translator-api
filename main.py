@@ -1,7 +1,7 @@
-# main.py
+cat << 'EOF' > main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from modules import groq_extract, translate, describe, extract 
+from modules import translate, describe, extract, scraper
 
 app = FastAPI(
     title="FNB Translator API",
@@ -18,12 +18,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Registering only the three main routers
+# Registering all routers including the scraper
 app.include_router(translate.router)
 app.include_router(describe.router)
 app.include_router(extract.router)
-app.include_router(groq_extract.router)
+app.include_router(scraper.router)
 
 @app.get("/", include_in_schema=False)
 def root():
     return {"message": "API is active"}
+EOF
