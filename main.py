@@ -1,4 +1,4 @@
-cat << 'EOF' > main.py
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from modules import translate, describe, extract, scraper
@@ -27,4 +27,3 @@ app.include_router(scraper.router)
 @app.get("/", include_in_schema=False)
 def root():
     return {"message": "API is active"}
-EOF
