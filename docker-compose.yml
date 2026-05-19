@@ -4,7 +4,7 @@ services:
     container_name: food_ai_backend
     restart: unless-stopped
     ports:
-      - "8081:8000"
+      - "80:8000"
     environment:
       - GROQ_API_KEY=${GROQ_API_KEY}
     volumes:
